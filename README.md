@@ -38,3 +38,4 @@ You are connected to database "cocktailsdb" as user "cocktailsdb" via socket in 
 ## TODO
 - [ ] Add regular automatic backups of the database (for example using `.backup ?DB? FILE` from SQLite)
 - [ ] Utilize serde deserialization from [serde_rusqlite](https://github.com/twistedfall/serde_rusqlite).
+- [ ] Investigate `unwrap`s on `query_and_then` in `database.rs`.

@@ -7,4 +7,6 @@ edition = "2018"
 [dependencies]
 # sqlx = { version = "0.2.1", features = [ "postgres" ] }
 rusqlite = "0.21.0"
+serde = { version = "1.0", features = ["derive"] }
+serde_rusqlite = "0.23.0"
 rouille = "3.0.0"

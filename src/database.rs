@@ -1,20 +1,24 @@
 use rusqlite::{Connection, NO_PARAMS};
+use serde::{Serialize, Deserialize};
+use serde_rusqlite::{from_row_with_columns, columns_from_statement};
 
 type StdErr = Box<dyn std::error::Error>;
 
 // Types prepared for being deserialized to by serde_json. Option values can be
 // null. Continue doing this when you continue programming. :)
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Cocktail {
     id: i64,
     name: String,
     date_added: i64,
     source: Option<String>,
+
+    #[serde(skip)]
     ingredients: Vec<CocktailIngredient>,
 }
 
-#[derive(Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct CocktailIngredient {
     id: i64,
     label: String,
@@ -62,59 +66,42 @@ impl Database {
         Ok(())
     }
 
-    pub fn get_all_cocktails(&self) -> Result<Vec<Cocktail>, StdErr> {
+    fn retrieve_all_cocktails(&self) -> Result<Vec<Cocktail>, StdErr> {
         let mut stmt = self.conn.prepare(
             "SELECT id, name, date_added, source FROM cocktails"
         )?;
-        
-        let cocktails_iter = stmt.query_map(
-            NO_PARAMS,
-            |row| {
-                let mut cktl = Cocktail {
-                    id: row.get(0)?,
-                    name: row.get(1)?,
-                    date_added: row.get(2)?,
-                    source: row.get(3)?,
-                    ingredients: Vec::new(),
-                };
-                let cktl_id: i64 = row.get(0)?;
+        let cols = columns_from_statement(&stmt);
+        let cocktails = stmt.query_and_then(NO_PARAMS, |row| from_row_with_columns::<Cocktail>(row, &cols))
+            .unwrap()
+            .filter_map(Result::ok)
+            .collect();
 
-                let mut ing_stmt = self.conn.prepare(
-                    "SELECT
-                        ingredient_id, label, amount, unit, ingredient_type
-                    FROM ingredients WHERE
-                        cocktail_id = ?"
-                )?;
-                
-                let ing_iter = ing_stmt.query_map(
-                    &[cktl_id],
-                    |ing_row| {
-                        Ok(CocktailIngredient {
-                            id: ing_row.get(0)?,
-                            label: ing_row.get(1)?,
-                            amount: ing_row.get(2)?,
-                            unit: ing_row.get(3)?,
-                            ingredient_type: ing_row.get(4)?,
-                        })
-                    }
-                )?;
+        Ok(cocktails)
+    }
 
-                for ing in ing_iter {
-                    cktl.ingredients.push(ing?);
-                }
-
-                Ok(cktl)
-            }
+    fn add_ingredients_to_cocktail_mut(&self, cocktail: &mut Cocktail) -> Result<(), StdErr> {
+        let mut ing_stmt = self.conn.prepare(
+            "SELECT
+                ingredient_id AS id, label, amount, unit, ingredient_type
+            FROM ingredients WHERE
+                cocktail_id = ?"
         )?;
+        let ing_cols = columns_from_statement(&ing_stmt);
 
-        let mut cocktails = Vec::new();
-        for c in cocktails_iter {
-            cocktails.push(c?);
+        ing_stmt.query_and_then(&[cocktail.id], |row| from_row_with_columns::<CocktailIngredient>(row, &ing_cols))
+            .unwrap()
+            .filter_map(Result::ok)
+            .for_each(|ing| cocktail.ingredients.push(ing));
+
+        Ok(())
+    }
+
+    pub fn get_all_cocktails(&self) -> Result<Vec<Cocktail>, StdErr> {
+        let mut cocktails = self.retrieve_all_cocktails()?;
+
+        for cocktail in &mut cocktails {
+            self.add_ingredients_to_cocktail_mut(cocktail)?;
         }
-
-        // let cocktails = cocktails_iter
-        //     .filter_map(Result::ok)
-        //     .collect();
 
         Ok(cocktails)
     }
