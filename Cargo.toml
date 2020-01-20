@@ -1,0 +1,10 @@
+[package]
+name = "cocktail-catalogue-backend"
+version = "0.1.0"
+authors = ["KongBorup <avborup@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+# sqlx = { version = "0.2.1", features = [ "postgres" ] }
+rusqlite = "0.21.0"
+rouille = "3.0.0"
