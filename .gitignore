@@ -2,6 +2,7 @@
 **/*.rs.bk
 
 src/sql
+*.db
 
 /vendor
 /.cargo
