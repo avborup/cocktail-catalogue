@@ -1,41 +1,38 @@
 # The Cocktail Catalogue Backend
 ## Prerequisites
-### SQLite
-Install SQLite. Guide TBA.
+### Rust
+Install Rust. Guide TBA.
 
-### Database (OLD: DELETE)
-First, install PostgreSQL:
+### SQLite
+Install SQLite using `apt-get`:
+```
+$ apt-get update
+$ apt-get install libsqlite3-dev
+```
+
+## Using Docker to build for Raspberry Pi
+This project was made to be run on a Raspberry Pi I had lying around at home, so
+to make developing from a Windows machine easier, Docker was used.
+
+To run the program with Docker in a Raspbian Jessie environment, build the image:
 ```bash
-$ sudo apt update
-$ sudo apt install postgresql postgresql-contrib
+$ docker build . -t rusty-pie
 ```
-Then, create a new role:
-```bash
-$ sudo -u postgres createuser --interactive
-Enter name of role to add: cocktailsdb
-Shall the new role be a superuser? (y/n) y
+First time you run the container, set it up with `cargo vendor` so that future
+cargo builds are cached:
 ```
-Choose whatever name you like, but do make the role a superuser. Now, a new
-database must be made:
-```bash
-$ sudo -u postgres createdb cocktailsdb
+$ docker run -v $(pwd):/app -it rusty-pie bash
+root@c70b8c729e19:/app# mkdir .cargo
+root@c70b8c729e19:/app# cargo vendor > .cargo/config
 ```
-Create a new non-root user with the same name as the role:
-```bash
-$ sudo adduser cocktailsdb
+Now you should be good to simply run
 ```
-Through this user, enter the Postgres prompt:
-```bash
-$ sudo -u cocktailsdb psql
+docker run -v $(pwd):/app -it rusty-pie cargo run
 ```
-Typing the `\conninfo` command should return information about the database
-connection, e.g. the port:
-```
-cocktailsdb=# \conninfo
-You are connected to database "cocktailsdb" as user "cocktailsdb" via socket in "/var/run/postgresql" at port "5432".
-```
+or other build commands, and the build will be cached.
 
 ## TODO
 - [ ] Add regular automatic backups of the database (for example using `.backup ?DB? FILE` from SQLite)
-- [ ] Utilize serde deserialization from [serde_rusqlite](https://github.com/twistedfall/serde_rusqlite).
 - [ ] Investigate `unwrap`s on `query_and_then` in `database.rs`.
+- [ ] Write guides on installation and setup.
+- [x] Utilize serde deserialization from [serde_rusqlite](https://github.com/twistedfall/serde_rusqlite).

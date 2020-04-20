@@ -2,3 +2,6 @@
 **/*.rs.bk
 
 src/sql
+
+/vendor
+/.cargo
