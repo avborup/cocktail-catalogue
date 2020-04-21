@@ -1,6 +1,7 @@
-use rusqlite::{Connection, NO_PARAMS};
+use rusqlite::{Connection, NO_PARAMS, ToSql};
 use serde::{Serialize, Deserialize};
-use serde_rusqlite::{from_row_with_columns, columns_from_statement};
+use serde_rusqlite::{from_row_with_columns, columns_from_statement, to_params_named};
+use crate::utils::get_cur_time_unix;
 
 type StdErr = Box<dyn std::error::Error>;
 
@@ -19,12 +20,30 @@ pub struct Cocktail {
 }
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct CocktailBasic {
+    pub name: String,
+    pub source: Option<String>,
+    pub ingredients: Vec<CocktailIngredient>,
+}
+
+impl CocktailBasic {
+    pub fn to_cocktail_ignore_ingredients(&self, id: i64, date_added: i64) -> Cocktail {
+        Cocktail {
+            id,
+            date_added,
+            name: self.name.clone(),
+            source: self.source.clone(),
+            ingredients: self.ingredients.clone(),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct CocktailIngredient {
-    id: i64,
-    label: String,
-    amount: Option<f64>,
-    unit: Option<String>,
-    ingredient_type: Option<String>,
+    pub label: String,
+    pub amount: Option<f64>,
+    pub unit: Option<String>,
+    pub ingredient_type: Option<String>,
 }
 
 #[derive(Debug)]
@@ -53,7 +72,6 @@ impl Database {
 
         conn.execute(
             "CREATE TABLE IF NOT EXISTS ingredients (
-                ingredient_id   INTEGER PRIMARY KEY,
                 cocktail_id     INTEGER NOT NULL,
                 label           TEXT    NOT NULL,
                 amount          REAL,
@@ -104,5 +122,39 @@ impl Database {
         }
 
         Ok(cocktails)
+    }
+
+    pub fn generate_id(&self) -> Result<i64, StdErr> {
+        let mut stmt = self.conn.prepare("SELECT id FROM cocktails ORDER BY id DESC LIMIT 1")?;
+        let rows = stmt.query_map(NO_PARAMS, |row| row.get(0))?;
+
+        for id_result in rows {
+            let id: i64 = id_result?;
+            return Ok(id + 1);
+        }
+
+        Err("Unable to generate id")?
+    }
+
+    pub fn add_cocktail(&self, cb: &CocktailBasic) -> Result<(), StdErr> {
+        let id = self.generate_id()?;
+        let date_added = get_cur_time_unix()?;
+        let cocktail = cb.to_cocktail_ignore_ingredients(id, date_added as i64);
+
+        self.conn.execute_named("INSERT INTO cocktails (id, name, date_added, source)
+                                VALUES (:id, :name, :date_added, :source)",
+                                &to_params_named(&cocktail).unwrap().to_slice())?;
+
+        for ingredient in cocktail.ingredients {
+            let p1 = to_params_named(&ingredient).unwrap();
+            let p2: Vec<(&str, &dyn ToSql)> = vec![(":cocktail_id", &id)];
+            let params = [p1.to_slice().as_slice(), p2.as_slice()].concat();
+
+            self.conn.execute_named("INSERT INTO ingredients (cocktail_id, label, amount, unit, ingredient_type)
+                                    VALUES (:cocktail_id, :label, :amount, :unit, :ingredient_type)",
+                                    &params)?;
+        }
+
+        Ok(())
     }
 }
