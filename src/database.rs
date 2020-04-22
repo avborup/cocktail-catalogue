@@ -17,6 +17,8 @@ pub struct Cocktail {
 
     #[serde(skip)]
     ingredients: Vec<CocktailIngredient>,
+    #[serde(skip)]
+    instructions: Vec<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -24,6 +26,7 @@ pub struct CocktailBasic {
     pub name: String,
     pub source: Option<String>,
     pub ingredients: Vec<CocktailIngredient>,
+    pub instructions: Vec<String>,
 }
 
 impl CocktailBasic {
@@ -34,6 +37,7 @@ impl CocktailBasic {
             name: self.name.clone(),
             source: self.source.clone(),
             ingredients: self.ingredients.clone(),
+            instructions: self.instructions.clone(),
         }
     }
 }
@@ -80,6 +84,15 @@ impl Database {
             )",
             NO_PARAMS,
         )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS instructions (
+                cocktail_id     INTEGER NOT NULL,
+                step_number     INTEGER NOT NULL,
+                instruction     TEXT    NOT NULL
+            )",
+            NO_PARAMS,
+        )?;
         
         Ok(())
     }
@@ -114,11 +127,22 @@ impl Database {
         Ok(())
     }
 
+    fn add_instructions_to_cocktail_mut(&self, cocktail: &mut Cocktail) -> Result<(), StdErr> {
+        let mut stmt = self.conn.prepare("SELECT instruction FROM instructions WHERE cocktail_id = ? ORDER BY step_number")?;
+        
+        stmt.query_and_then(&[cocktail.id], |row| row.get(0))?
+            .filter_map(Result::ok)
+            .for_each(|instr| cocktail.instructions.push(instr));
+
+        Ok(())
+    }
+
     pub fn get_all_cocktails(&self) -> Result<Vec<Cocktail>, StdErr> {
         let mut cocktails = self.retrieve_all_cocktails()?;
 
         for cocktail in &mut cocktails {
             self.add_ingredients_to_cocktail_mut(cocktail)?;
+            self.add_instructions_to_cocktail_mut(cocktail)?;
         }
 
         Ok(cocktails)
@@ -155,11 +179,21 @@ impl Database {
                                     &params)?;
         }
 
+        for i in 0..cocktail.instructions.len() {
+            let instruction = &cocktail.instructions[i];
+            let step_num = (i + 1) as i8;
+
+            self.conn.execute_named("INSERT INTO instructions (cocktail_id, step_number, instruction)
+                                    VALUES (:cocktail_id, :step_number, :instruction)",
+                                    &[(":cocktail_id", &id), (":step_number", &step_num), (":instruction", &instruction)])?;
+        }
+
         Ok(())
     }
 
     pub fn delete_cocktail(&self, id: i64) -> Result<(), rusqlite::Error> {
         self.conn.execute_named("DELETE FROM ingredients WHERE cocktail_id = :cocktail_id", &[(":cocktail_id", &id)])?;
+        self.conn.execute_named("DELETE FROM instructions WHERE cocktail_id = :cocktail_id", &[(":cocktail_id", &id)])?;
         self.conn.execute_named("DELETE FROM cocktails WHERE id = :cocktail_id", &[(":cocktail_id", &id)])?;
 
         Ok(())
