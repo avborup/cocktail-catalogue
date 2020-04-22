@@ -157,4 +157,11 @@ impl Database {
 
         Ok(())
     }
+
+    pub fn delete_cocktail(&self, id: i64) -> Result<(), rusqlite::Error> {
+        self.conn.execute_named("DELETE FROM ingredients WHERE cocktail_id = :cocktail_id", &[(":cocktail_id", &id)])?;
+        self.conn.execute_named("DELETE FROM cocktails WHERE id = :cocktail_id", &[(":cocktail_id", &id)])?;
+
+        Ok(())
+    }
 }
