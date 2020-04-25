@@ -30,7 +30,7 @@ pub struct CocktailBasic {
 }
 
 impl CocktailBasic {
-    pub fn to_cocktail_ignore_ingredients(&self, id: i64, date_added: i64) -> Cocktail {
+    pub fn to_cocktail(&self, id: i64, date_added: i64) -> Cocktail {
         Cocktail {
             id,
             date_added,
@@ -163,15 +163,28 @@ impl Database {
     pub fn add_cocktail(&self, cb: &CocktailBasic) -> Result<(), StdErr> {
         let id = self.generate_id()?;
         let date_added = get_cur_time_unix()?;
-        let cocktail = cb.to_cocktail_ignore_ingredients(id, date_added as i64);
+        let cocktail = cb.to_cocktail(id, date_added as i64);
 
+        self.add_cocktail_to_db(&cocktail)?;
+
+        Ok(())
+    }
+    
+    pub fn add_cocktail_to_db(&self, cocktail: &Cocktail) -> Result<(), StdErr> {
         self.conn.execute_named("INSERT INTO cocktails (id, name, date_added, source)
                                 VALUES (:id, :name, :date_added, :source)",
                                 &to_params_named(&cocktail).unwrap().to_slice())?;
 
-        for ingredient in cocktail.ingredients {
+        self.add_ingredients_to_db(cocktail.id, &cocktail.ingredients)?;
+        self.add_instructions_to_db(cocktail.id, &cocktail.instructions)?;
+
+        Ok(())
+    }
+
+    fn add_ingredients_to_db(&self, cocktail_id: i64, ingredients: &[CocktailIngredient]) -> Result<(), StdErr> {
+        for ingredient in ingredients {
             let p1 = to_params_named(&ingredient).unwrap();
-            let p2: Vec<(&str, &dyn ToSql)> = vec![(":cocktail_id", &id)];
+            let p2: Vec<(&str, &dyn ToSql)> = vec![(":cocktail_id", &cocktail_id)];
             let params = [p1.to_slice().as_slice(), p2.as_slice()].concat();
 
             self.conn.execute_named("INSERT INTO ingredients (cocktail_id, label, amount, unit, ingredient_type)
@@ -179,13 +192,17 @@ impl Database {
                                     &params)?;
         }
 
-        for i in 0..cocktail.instructions.len() {
-            let instruction = &cocktail.instructions[i];
+        Ok(())
+    }
+
+    fn add_instructions_to_db(&self, cocktail_id: i64, instructions: &[String]) -> Result<(), StdErr> {
+        for i in 0..instructions.len() {
+            let instruction = &instructions[i];
             let step_num = (i + 1) as i8;
 
             self.conn.execute_named("INSERT INTO instructions (cocktail_id, step_number, instruction)
                                     VALUES (:cocktail_id, :step_number, :instruction)",
-                                    &[(":cocktail_id", &id), (":step_number", &step_num), (":instruction", &instruction)])?;
+                                    &[(":cocktail_id", &cocktail_id), (":step_number", &step_num), (":instruction", &instruction)])?;
         }
 
         Ok(())
@@ -195,6 +212,13 @@ impl Database {
         self.conn.execute_named("DELETE FROM ingredients WHERE cocktail_id = :cocktail_id", &[(":cocktail_id", &id)])?;
         self.conn.execute_named("DELETE FROM instructions WHERE cocktail_id = :cocktail_id", &[(":cocktail_id", &id)])?;
         self.conn.execute_named("DELETE FROM cocktails WHERE id = :cocktail_id", &[(":cocktail_id", &id)])?;
+
+        Ok(())
+    }
+    
+    pub fn overwrite_cocktail(&self, cocktail: &Cocktail) -> Result<(), StdErr> {
+        self.delete_cocktail(cocktail.id)?;
+        self.add_cocktail_to_db(&cocktail)?;
 
         Ok(())
     }
