@@ -5,8 +5,12 @@ authors = ["KongBorup <avborup@gmail.com>"]
 edition = "2018"
 
 [dependencies]
-# sqlx = { version = "0.2.1", features = [ "postgres" ] }
-rusqlite = "0.21.0"
-serde = { version = "1.0", features = ["derive"] }
+rusqlite = { version = "0.21.0", features = [ "bundled" ] }
+serde = { version = "1.0.103", features = [ "derive" ] }
 serde_rusqlite = "0.23.0"
-rouille = "3.0.0"
+juniper = "0.14.2"
+actix-web = "2.0.0"
+actix-rt = "1.0.0"
+env_logger = "0.7.1"
+serde_json = "1.0.44"
+serde_derive = "1.0.103"

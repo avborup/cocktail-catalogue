@@ -1,54 +1,10 @@
 use rusqlite::{Connection, NO_PARAMS, ToSql};
-use serde::{Serialize, Deserialize};
 use serde_rusqlite::{from_row_with_columns, columns_from_statement, to_params_named};
+
 use crate::utils::get_cur_time_unix;
+use crate::schema::{Cocktail, NewCocktail, CocktailIngredient};
 
 type StdErr = Box<dyn std::error::Error>;
-
-// Types prepared for being deserialized to by serde_json. Option values can be
-// null. Continue doing this when you continue programming. :)
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Cocktail {
-    id: i64,
-    name: String,
-    date_added: i64,
-    source: Option<String>,
-
-    #[serde(skip)]
-    ingredients: Vec<CocktailIngredient>,
-    #[serde(skip)]
-    instructions: Vec<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct CocktailBasic {
-    pub name: String,
-    pub source: Option<String>,
-    pub ingredients: Vec<CocktailIngredient>,
-    pub instructions: Vec<String>,
-}
-
-impl CocktailBasic {
-    pub fn to_cocktail(&self, id: i64, date_added: i64) -> Cocktail {
-        Cocktail {
-            id,
-            date_added,
-            name: self.name.clone(),
-            source: self.source.clone(),
-            ingredients: self.ingredients.clone(),
-            instructions: self.instructions.clone(),
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct CocktailIngredient {
-    pub label: String,
-    pub amount: Option<f64>,
-    pub unit: Option<String>,
-    pub ingredient_type: Option<String>,
-}
 
 #[derive(Debug)]
 pub struct Database {
@@ -113,7 +69,7 @@ impl Database {
     fn add_ingredients_to_cocktail_mut(&self, cocktail: &mut Cocktail) -> Result<(), StdErr> {
         let mut ing_stmt = self.conn.prepare(
             "SELECT
-                ingredient_id AS id, label, amount, unit, ingredient_type
+                label, amount, unit, ingredient_type
             FROM ingredients WHERE
                 cocktail_id = ?"
         )?;
@@ -129,7 +85,7 @@ impl Database {
 
     fn add_instructions_to_cocktail_mut(&self, cocktail: &mut Cocktail) -> Result<(), StdErr> {
         let mut stmt = self.conn.prepare("SELECT instruction FROM instructions WHERE cocktail_id = ? ORDER BY step_number")?;
-        
+
         stmt.query_and_then(&[cocktail.id], |row| row.get(0))?
             .filter_map(Result::ok)
             .for_each(|instr| cocktail.instructions.push(instr));
@@ -148,29 +104,51 @@ impl Database {
         Ok(cocktails)
     }
 
-    pub fn generate_id(&self) -> Result<i64, StdErr> {
+    pub fn get_cocktail(&self, id: i32) -> Result<Cocktail, StdErr> {
+        let mut stmt = self.conn.prepare("SELECT id, name, date_added, source FROM cocktails WHERE id = ? LIMIT 1")?;
+        let cols = columns_from_statement(&stmt);
+        let cocktails: Vec<Cocktail> = stmt
+            .query_and_then(&[id], |row| from_row_with_columns::<Cocktail>(row, &cols))
+            .unwrap()
+            .filter_map(Result::ok)
+            .collect();
+
+        for cocktail in &cocktails {
+            let mut cocktail = cocktail.clone();
+
+            self.add_ingredients_to_cocktail_mut(&mut cocktail)?;
+            self.add_instructions_to_cocktail_mut(&mut cocktail)?;
+
+            return Ok(cocktail);
+        }
+
+        Err("Could not find cocktail".into())
+    }
+
+    pub fn generate_id(&self) -> Result<i32, StdErr> {
         let mut stmt = self.conn.prepare("SELECT id FROM cocktails ORDER BY id DESC LIMIT 1")?;
         let rows = stmt.query_map(NO_PARAMS, |row| row.get(0))?;
 
         for id_result in rows {
-            let id: i64 = id_result?;
+            let id: i32 = id_result?;
             return Ok(id + 1);
         }
 
-        Err("Unable to generate id")?
+        // When there are no rows in the database, this will become the first id
+        Ok(0)
     }
 
-    pub fn add_cocktail(&self, cb: &CocktailBasic) -> Result<(), StdErr> {
+    pub fn add_cocktail(&self, nc: &NewCocktail) -> Result<Cocktail, StdErr> {
         let id = self.generate_id()?;
         let date_added = get_cur_time_unix()?;
-        let cocktail = cb.to_cocktail(id, date_added as i64);
+        let cocktail = nc.to_cocktail(id, date_added as i32);
 
         self.add_cocktail_to_db(&cocktail)?;
 
-        Ok(())
+        Ok(cocktail)
     }
     
-    pub fn add_cocktail_to_db(&self, cocktail: &Cocktail) -> Result<(), StdErr> {
+    fn add_cocktail_to_db(&self, cocktail: &Cocktail) -> Result<(), StdErr> {
         self.conn.execute_named("INSERT INTO cocktails (id, name, date_added, source)
                                 VALUES (:id, :name, :date_added, :source)",
                                 &to_params_named(&cocktail).unwrap().to_slice())?;
@@ -181,7 +159,7 @@ impl Database {
         Ok(())
     }
 
-    fn add_ingredients_to_db(&self, cocktail_id: i64, ingredients: &[CocktailIngredient]) -> Result<(), StdErr> {
+    fn add_ingredients_to_db(&self, cocktail_id: i32, ingredients: &[CocktailIngredient]) -> Result<(), StdErr> {
         for ingredient in ingredients {
             let p1 = to_params_named(&ingredient).unwrap();
             let p2: Vec<(&str, &dyn ToSql)> = vec![(":cocktail_id", &cocktail_id)];
@@ -195,7 +173,7 @@ impl Database {
         Ok(())
     }
 
-    fn add_instructions_to_db(&self, cocktail_id: i64, instructions: &[String]) -> Result<(), StdErr> {
+    fn add_instructions_to_db(&self, cocktail_id: i32, instructions: &[String]) -> Result<(), StdErr> {
         for i in 0..instructions.len() {
             let instruction = &instructions[i];
             let step_num = (i + 1) as i8;
@@ -208,7 +186,7 @@ impl Database {
         Ok(())
     }
 
-    pub fn delete_cocktail(&self, id: i64) -> Result<(), rusqlite::Error> {
+    pub fn delete_cocktail(&self, id: i32) -> Result<(), rusqlite::Error> {
         self.conn.execute_named("DELETE FROM ingredients WHERE cocktail_id = :cocktail_id", &[(":cocktail_id", &id)])?;
         self.conn.execute_named("DELETE FROM instructions WHERE cocktail_id = :cocktail_id", &[(":cocktail_id", &id)])?;
         self.conn.execute_named("DELETE FROM cocktails WHERE id = :cocktail_id", &[(":cocktail_id", &id)])?;
@@ -216,10 +194,14 @@ impl Database {
         Ok(())
     }
     
-    pub fn overwrite_cocktail(&self, cocktail: &Cocktail) -> Result<(), StdErr> {
-        self.delete_cocktail(cocktail.id)?;
+    pub fn overwrite_cocktail(&self, id: i32, new_cocktail: &NewCocktail) -> Result<Cocktail, StdErr> {
+        let date_added = self.get_cocktail(id)?.date_added;
+        let cocktail = new_cocktail.to_cocktail(id, date_added);
+
+        self.delete_cocktail(id)?;
         self.add_cocktail_to_db(&cocktail)?;
 
-        Ok(())
+        Ok(cocktail)
     }
 }
+
