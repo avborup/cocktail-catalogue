@@ -252,5 +252,15 @@ impl Database {
 
         Ok(())
     }
+
+    pub fn get_all_users(&self) -> Result<Vec<String>, StdErr> {
+        let mut stmt = self.conn.prepare("SELECT DISTINCT author FROM cocktails")?;
+
+        let users = stmt.query_and_then(NO_PARAMS, |row| row.get(0))?
+            .filter_map(Result::ok)
+            .collect();
+
+        Ok(users)
+    }
 }
 

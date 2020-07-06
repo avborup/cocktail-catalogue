@@ -123,6 +123,13 @@ impl Query {
 
         Ok(cocktails)
     }
+
+    fn users(context: &Context) -> FieldResult<Vec<String>> {
+        let db = context.db.lock()?;
+        let users = db.get_all_users()?;
+
+        Ok(users)
+    }
 }
 
 pub struct Mutation;
