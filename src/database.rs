@@ -25,6 +25,7 @@ impl Database {
                 id          INTEGER  PRIMARY KEY,
                 name        TEXT     NOT NULL,
                 date_added  INT      NOT NULL,
+                author      TEXT     NOT NULL,
                 source      TEXT
             )",
             NO_PARAMS,
@@ -64,7 +65,7 @@ impl Database {
 
     fn retrieve_all_cocktails(&self) -> Result<Vec<Cocktail>, StdErr> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, name, date_added, source FROM cocktails"
+            "SELECT id, name, date_added, author, source FROM cocktails"
         )?;
         let cols = columns_from_statement(&stmt);
         let cocktails = stmt.query_and_then(NO_PARAMS, |row| from_row_with_columns::<Cocktail>(row, &cols))
@@ -115,7 +116,7 @@ impl Database {
     }
 
     pub fn get_cocktail(&self, id: i32) -> Result<Cocktail, StdErr> {
-        let mut stmt = self.conn.prepare("SELECT id, name, date_added, source FROM cocktails WHERE id = ? LIMIT 1")?;
+        let mut stmt = self.conn.prepare("SELECT id, name, date_added, author, source FROM cocktails WHERE id = ? LIMIT 1")?;
         let cols = columns_from_statement(&stmt);
         let cocktails: Vec<Cocktail> = stmt
             .query_and_then(&[id], |row| from_row_with_columns::<Cocktail>(row, &cols))
@@ -160,8 +161,8 @@ impl Database {
     }
     
     fn add_cocktail_to_db(&self, cocktail: &Cocktail) -> Result<(), StdErr> {
-        self.conn.execute_named("INSERT INTO cocktails (id, name, date_added, source)
-                                VALUES (:id, :name, :date_added, :source)",
+        self.conn.execute_named("INSERT INTO cocktails (id, name, date_added, author, source)
+                                VALUES (:id, :name, :date_added, :author, :source)",
                                 &to_params_named(&cocktail).unwrap().to_slice())?;
 
         self.add_ingredients_to_db(cocktail.id, &cocktail.ingredients)?;

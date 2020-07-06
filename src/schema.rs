@@ -10,6 +10,7 @@ pub struct Cocktail {
     pub name: String,
     pub date_added: i32,
     pub source: Option<String>,
+    pub author: String,
 
     #[serde(skip)]
     pub ingredients: Vec<CocktailIngredient>,
@@ -23,6 +24,7 @@ pub struct Cocktail {
 pub struct NewCocktail {
     name: String,
     source: Option<String>,
+    author: String,
     ingredients: Vec<CocktailIngredientInput>,
     instructions: Vec<String>,
     ratings: Vec<NewRating>,
@@ -35,6 +37,7 @@ impl NewCocktail {
             date_added,
             name: self.name.clone(),
             source: self.source.clone(),
+            author: self.author.clone(),
             ingredients: self.ingredients.clone().into_iter().map(|ing| ing.into()).collect(),
             instructions: self.instructions.clone(),
             ratings: self.ratings.clone().into_iter().map(|r| r.into()).collect(),
