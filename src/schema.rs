@@ -15,6 +15,8 @@ pub struct Cocktail {
     pub ingredients: Vec<CocktailIngredient>,
     #[serde(skip)]
     pub instructions: Vec<String>,
+    #[serde(skip)]
+    pub ratings: Vec<Rating>,
 }
 
 #[derive(juniper::GraphQLInputObject, Serialize, Deserialize, Debug)]
@@ -23,6 +25,7 @@ pub struct NewCocktail {
     source: Option<String>,
     ingredients: Vec<CocktailIngredientInput>,
     instructions: Vec<String>,
+    ratings: Vec<NewRating>,
 }
 
 impl NewCocktail {
@@ -34,6 +37,7 @@ impl NewCocktail {
             source: self.source.clone(),
             ingredients: self.ingredients.clone().into_iter().map(|ing| ing.into()).collect(),
             instructions: self.instructions.clone(),
+            ratings: self.ratings.clone().into_iter().map(|r| r.into()).collect(),
         }
     }
 }
@@ -61,6 +65,27 @@ impl From<CocktailIngredientInput> for CocktailIngredient {
             amount: ing.amount,
             unit: ing.unit.clone(),
             ingredient_type: ing.ingredient_type.clone(),
+        }
+    }
+}
+
+#[derive(juniper::GraphQLObject, Serialize, Deserialize, Debug, Clone)]
+pub struct Rating {
+    pub rating: i32,
+    pub author: String,
+}
+
+#[derive(juniper::GraphQLInputObject, Serialize, Deserialize, Debug, Clone)]
+pub struct NewRating {
+    rating: i32,
+    author: String,
+}
+
+impl From<NewRating> for Rating {
+    fn from(rating: NewRating) -> Rating {
+        Rating {
+            rating: rating.rating,
+            author: rating.author.clone(),
         }
     }
 }
@@ -122,6 +147,14 @@ impl Mutation {
         db.delete_cocktail(id)?;
 
         Ok(id)
+    }
+
+    fn rateCocktail(context: &Context, id: i32, rating: NewRating) -> FieldResult<Vec<Rating>> {
+        let db = context.db.lock()?;
+        db.rate_cocktail(id, rating.into())?;
+
+        let ratings = db.get_cocktail(id)?.ratings;
+        Ok(ratings)
     }
 }
 

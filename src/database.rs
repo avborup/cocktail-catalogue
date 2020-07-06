@@ -2,7 +2,7 @@ use rusqlite::{Connection, NO_PARAMS, ToSql};
 use serde_rusqlite::{from_row_with_columns, columns_from_statement, to_params_named};
 
 use crate::utils::get_cur_time_unix;
-use crate::schema::{Cocktail, NewCocktail, CocktailIngredient};
+use crate::schema::{Cocktail, NewCocktail, CocktailIngredient, Rating};
 
 type StdErr = Box<dyn std::error::Error>;
 
@@ -46,6 +46,15 @@ impl Database {
                 cocktail_id     INTEGER NOT NULL,
                 step_number     INTEGER NOT NULL,
                 instruction     TEXT    NOT NULL
+            )",
+            NO_PARAMS,
+        )?;
+
+        conn.execute(
+            "CREATE TABLE IF NOT EXISTS ratings (
+                cocktail_id     INTEGER NOT NULL,
+                rating          INTEGER NOT NULL,
+                author          TEXT    NOT NULL
             )",
             NO_PARAMS,
         )?;
@@ -99,6 +108,7 @@ impl Database {
         for cocktail in &mut cocktails {
             self.add_ingredients_to_cocktail_mut(cocktail)?;
             self.add_instructions_to_cocktail_mut(cocktail)?;
+            self.add_ratings_to_cocktail_mut(cocktail)?;
         }
 
         Ok(cocktails)
@@ -118,6 +128,7 @@ impl Database {
 
             self.add_ingredients_to_cocktail_mut(&mut cocktail)?;
             self.add_instructions_to_cocktail_mut(&mut cocktail)?;
+            self.add_ratings_to_cocktail_mut(&mut cocktail)?;
 
             return Ok(cocktail);
         }
@@ -155,6 +166,7 @@ impl Database {
 
         self.add_ingredients_to_db(cocktail.id, &cocktail.ingredients)?;
         self.add_instructions_to_db(cocktail.id, &cocktail.instructions)?;
+        self.add_ratings_to_db(cocktail.id, &cocktail.ratings)?;
 
         Ok(())
     }
@@ -189,11 +201,12 @@ impl Database {
     pub fn delete_cocktail(&self, id: i32) -> Result<(), rusqlite::Error> {
         self.conn.execute_named("DELETE FROM ingredients WHERE cocktail_id = :cocktail_id", &[(":cocktail_id", &id)])?;
         self.conn.execute_named("DELETE FROM instructions WHERE cocktail_id = :cocktail_id", &[(":cocktail_id", &id)])?;
+        self.conn.execute_named("DELETE FROM ratings WHERE cocktail_id = :cocktail_id", &[(":cocktail_id", &id)])?;
         self.conn.execute_named("DELETE FROM cocktails WHERE id = :cocktail_id", &[(":cocktail_id", &id)])?;
 
         Ok(())
     }
-    
+
     pub fn overwrite_cocktail(&self, id: i32, new_cocktail: &NewCocktail) -> Result<Cocktail, StdErr> {
         let date_added = self.get_cocktail(id)?.date_added;
         let cocktail = new_cocktail.to_cocktail(id, date_added);
@@ -202,6 +215,41 @@ impl Database {
         self.add_cocktail_to_db(&cocktail)?;
 
         Ok(cocktail)
+    }
+
+    fn add_ratings_to_db(&self, cocktail_id: i32, ratings: &[Rating]) -> Result<(), StdErr> {
+        for rating in ratings {
+            let p1 = to_params_named(&rating).unwrap();
+            let p2: Vec<(&str, &dyn ToSql)> = vec![(":cocktail_id", &cocktail_id)];
+            let params = [p1.to_slice().as_slice(), p2.as_slice()].concat();
+
+            self.conn.execute_named("INSERT INTO ratings (cocktail_id, rating, author)
+                                    VALUES (:cocktail_id, :rating, :author)",
+                                    &params)?;
+        }
+
+        Ok(())
+    }
+
+    fn add_ratings_to_cocktail_mut(&self, cocktail: &mut Cocktail) -> Result<(), StdErr> {
+        let mut rat_stmt = self.conn.prepare("SELECT rating, author FROM ratings WHERE cocktail_id = ?")?;
+        let rat_cols = columns_from_statement(&rat_stmt);
+
+        rat_stmt.query_and_then(&[cocktail.id], |row| from_row_with_columns::<Rating>(row, &rat_cols))
+            .unwrap()
+            .filter_map(Result::ok)
+            .for_each(|rat| cocktail.ratings.push(rat));
+
+        Ok(())
+    }
+
+    pub fn rate_cocktail(&self, cocktail_id: i32, rating: Rating) -> Result<(), StdErr> {
+        self.conn.execute_named("DELETE FROM ratings WHERE cocktail_id = :cocktail_id AND author = :author",
+                                &[(":cocktail_id", &cocktail_id), (":author", &&rating.author)])?;
+
+        self.add_ratings_to_db(cocktail_id, &[rating])?;
+
+        Ok(())
     }
 }
 
