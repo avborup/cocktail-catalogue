@@ -118,23 +118,21 @@ impl Database {
     pub fn get_cocktail(&self, id: i32) -> Result<Cocktail, StdErr> {
         let mut stmt = self.conn.prepare("SELECT id, name, date_added, author, source FROM cocktails WHERE id = ? LIMIT 1")?;
         let cols = columns_from_statement(&stmt);
-        let cocktails: Vec<Cocktail> = stmt
+        let mut cocktails = stmt
             .query_and_then(&[id], |row| from_row_with_columns::<Cocktail>(row, &cols))
             .unwrap()
-            .filter_map(Result::ok)
-            .collect();
+            .filter_map(Result::ok);
 
-        for cocktail in &cocktails {
-            let mut cocktail = cocktail.clone();
+        match cocktails.next() {
+            Some(mut cocktail) => {
+                self.add_ingredients_to_cocktail_mut(&mut cocktail)?;
+                self.add_instructions_to_cocktail_mut(&mut cocktail)?;
+                self.add_ratings_to_cocktail_mut(&mut cocktail)?;
 
-            self.add_ingredients_to_cocktail_mut(&mut cocktail)?;
-            self.add_instructions_to_cocktail_mut(&mut cocktail)?;
-            self.add_ratings_to_cocktail_mut(&mut cocktail)?;
-
-            return Ok(cocktail);
+                Ok(cocktail)
+            },
+            None => Err("Could not find cocktail".into()),
         }
-
-        Err("Could not find cocktail".into())
     }
 
     pub fn generate_id(&self) -> Result<i32, StdErr> {
