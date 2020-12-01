@@ -1,5 +1,5 @@
-use std::net::TcpListener;
 use cocktail_catalogue_backend::server;
+use std::net::TcpListener;
 
 // FIXME: Don't return Result here.. Handle the error! Do something fancy like
 // sending myself a message if everything crashes or simply printing the issue.

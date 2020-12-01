@@ -3,7 +3,8 @@ use std::net::TcpListener;
 fn spawn_app() -> String {
     let listener = TcpListener::bind("127.0.0.1:0").expect("failed to bind port");
     let port = listener.local_addr().unwrap().port();
-    let server = cocktail_catalogue_backend::server::start(listener).expect("failed to start server");
+    let server =
+        cocktail_catalogue_backend::server::start(listener).expect("failed to start server");
     let _ = tokio::spawn(server);
 
     format!("http://127.0.0.1:{}", port)

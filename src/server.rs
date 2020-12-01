@@ -1,8 +1,8 @@
-use std::{net::TcpListener, io};
-use std::sync::Arc;
 use actix_web::{middleware, web, App, Error, HttpResponse, HttpServer, Responder};
 use juniper::http::graphiql::graphiql_source;
 use juniper::http::GraphQLRequest;
+use std::sync::Arc;
+use std::{io, net::TcpListener};
 
 use crate::schema;
 
@@ -58,4 +58,3 @@ pub fn start(listener: TcpListener) -> io::Result<actix_web::dev::Server> {
 
     Ok(server)
 }
-

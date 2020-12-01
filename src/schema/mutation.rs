@@ -5,5 +5,4 @@ pub struct Mutation;
 #[juniper::object(
     Context = Context,
 )]
-impl Mutation {
-}
+impl Mutation {}
