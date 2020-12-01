@@ -4,6 +4,13 @@ version = "0.1.0"
 authors = ["KongBorup <avborup@gmail.com>"]
 edition = "2018"
 
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+path = "src/main.rs"
+name = "app"
+
 [dependencies]
 rusqlite = { version = "0.21.0", features = [ "bundled" ] }
 serde = { version = "1.0.103", features = [ "derive" ] }

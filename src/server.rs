@@ -1,13 +1,14 @@
-use std::io;
-use std::sync::Arc;
-
+use crate::database;
+use std::{net::TcpListener, io};
+use std::sync::{Arc, Mutex};
 use actix_web::{middleware, web, App, Error, HttpResponse, HttpServer, Responder};
 use juniper::http::graphiql::graphiql_source;
 use juniper::http::GraphQLRequest;
 
 use crate::schema;
 
-const HOST: &str = "127.0.0.1:8080";
+pub const HOST: &str = "127.0.0.1:8080";
+pub const DB_LOCATION: &str = "test.db";
 
 async fn graphiql() -> HttpResponse {
     let html = graphiql_source(&format!("http://{}/graphql", HOST));
@@ -37,22 +38,25 @@ async fn health_check() -> impl Responder {
     HttpResponse::Ok()
 }
 
-pub fn start(schema: Arc<schema::Schema>, ctx: Arc<schema::Context>) -> io::Result<actix_web::dev::Server> {
+pub fn start(listener: TcpListener) -> io::Result<actix_web::dev::Server> {
     std::env::set_var("RUST_LOG", "actix_web=info");
     env_logger::init();
 
-    println!("Server started at {}", HOST);
+    // FIXME: Handle error when database fails to open
+    let db = Mutex::new(database::Database::open(DB_LOCATION).expect("failed to open database"));
+    let sch = Arc::new(schema::create_schema());
+    let ctx = Arc::new(schema::Context { db });
 
     let server = HttpServer::new(move || {
         App::new()
-            .data(schema.clone())
+            .data(sch.clone())
             .data(ctx.clone())
             .wrap(middleware::Logger::default())
             .service(web::resource("/graphql").route(web::post().to(graphql)))
             .service(web::resource("/graphiql").route(web::get().to(graphiql)))
             .route("/health_check", web::get().to(health_check))
     })
-    .bind(HOST)?
+    .listen(listener)?
     .run();
 
     Ok(server)
