@@ -1,9 +1,4 @@
-use crate::database;
-use std::sync::Mutex;
-
 #[derive(Debug)]
-pub struct Context {
-    pub db: Mutex<database::Database>,
-}
+pub struct Context;
 
 impl juniper::Context for Context {}

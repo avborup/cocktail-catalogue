@@ -1,6 +1,5 @@
-use crate::database;
 use std::{net::TcpListener, io};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use actix_web::{middleware, web, App, Error, HttpResponse, HttpServer, Responder};
 use juniper::http::graphiql::graphiql_source;
 use juniper::http::GraphQLRequest;
@@ -42,10 +41,8 @@ pub fn start(listener: TcpListener) -> io::Result<actix_web::dev::Server> {
     std::env::set_var("RUST_LOG", "actix_web=info");
     env_logger::init();
 
-    // FIXME: Handle error when database fails to open
-    let db = Mutex::new(database::Database::open(DB_LOCATION).expect("failed to open database"));
     let sch = Arc::new(schema::create_schema());
-    let ctx = Arc::new(schema::Context { db });
+    let ctx = Arc::new(schema::Context {});
 
     let server = HttpServer::new(move || {
         App::new()
