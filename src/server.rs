@@ -1,16 +1,18 @@
+use crate::configuration::CONFIG;
+use crate::schema;
 use actix_web::{middleware, web, App, Error, HttpResponse, HttpServer, Responder};
 use juniper::http::graphiql::graphiql_source;
 use juniper::http::GraphQLRequest;
+use sqlx::PgPool;
+use std::io;
+use std::net::TcpListener;
 use std::sync::Arc;
-use std::{io, net::TcpListener};
-
-use crate::schema;
-
-pub const HOST: &str = "127.0.0.1:8080";
-pub const DB_LOCATION: &str = "test.db";
 
 async fn graphiql() -> HttpResponse {
-    let html = graphiql_source(&format!("http://{}/graphql", HOST));
+    let html = graphiql_source(&format!(
+        "http://{}:{}/graphql",
+        CONFIG.server_host, CONFIG.server_port
+    ));
 
     HttpResponse::Ok()
         .content_type("text/html; charset=utf-8")
@@ -37,17 +39,17 @@ async fn health_check() -> impl Responder {
     HttpResponse::Ok()
 }
 
-pub fn start(listener: TcpListener) -> io::Result<actix_web::dev::Server> {
+pub fn start(listener: TcpListener, db_pool: PgPool) -> io::Result<actix_web::dev::Server> {
     std::env::set_var("RUST_LOG", "actix_web=info");
     env_logger::init();
 
-    let sch = Arc::new(schema::create_schema());
-    let ctx = Arc::new(schema::Context {});
+    let sch = web::Data::new(schema::create_schema());
+    let ctx = web::Data::new(schema::Context { db: db_pool });
 
     let server = HttpServer::new(move || {
         App::new()
-            .data(sch.clone())
-            .data(ctx.clone())
+            .app_data(sch.clone())
+            .app_data(ctx.clone())
             .wrap(middleware::Logger::default())
             .service(web::resource("/graphql").route(web::post().to(graphql)))
             .service(web::resource("/graphiql").route(web::get().to(graphiql)))

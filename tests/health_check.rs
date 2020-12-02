@@ -1,22 +1,14 @@
-use std::net::TcpListener;
+mod helpers;
 
-fn spawn_app() -> String {
-    let listener = TcpListener::bind("127.0.0.1:0").expect("failed to bind port");
-    let port = listener.local_addr().unwrap().port();
-    let server =
-        cocktail_catalogue_backend::server::start(listener).expect("failed to start server");
-    let _ = tokio::spawn(server);
-
-    format!("http://127.0.0.1:{}", port)
-}
+use helpers::spawn_app;
 
 #[actix_rt::test]
 async fn health_check_works() {
-    let address = spawn_app();
+    let app = spawn_app().await;
     let client = reqwest::Client::new();
 
     let res = client
-        .get(&format!("{}/health_check", &address))
+        .get(&format!("{}/health_check", &app.address))
         .send()
         .await
         .expect("failed to execute request");

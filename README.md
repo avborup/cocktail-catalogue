@@ -1,14 +1,15 @@
 # The Cocktail Catalogue Backend
 ## Prerequisites
-### Rust
-Install Rust. Guide TBA.
-
-### SQLite
-Install SQLite using `apt-get`:
-```
-$ apt-get update
-$ apt-get install libsqlite3-dev
-```
+- Rust
+- `docker`
+- `sqlx-cli` (v0.2.0)
+  ```sh
+  $ cargo install --version=0.2.0 sqlx-cli --no-default-features --features postgres
+  ```
+- `psql`
+  ```sh
+  $ sudo apt-get install postgresql-client
+  ```
 
 ## Using Docker to build for Raspberry Pi
 This project was made to be run on a Raspberry Pi I had lying around at home, so
