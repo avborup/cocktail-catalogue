@@ -5,4 +5,8 @@ pub struct Query;
 #[juniper::object(
     Context = Context,
 )]
-impl Query {}
+impl Query {
+    fn apiVersion() -> &str {
+        env!("CARGO_PKG_VERSION")
+    }
+}

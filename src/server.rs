@@ -43,8 +43,8 @@ pub fn start(listener: TcpListener, db_pool: PgPool) -> io::Result<actix_web::de
     std::env::set_var("RUST_LOG", "actix_web=info");
     env_logger::init();
 
-    let sch = web::Data::new(schema::create_schema());
-    let ctx = web::Data::new(schema::Context { db: db_pool });
+    let sch = web::Data::new(Arc::new(schema::create_schema()));
+    let ctx = web::Data::new(Arc::new(schema::Context { db: db_pool }));
 
     let server = HttpServer::new(move || {
         App::new()
