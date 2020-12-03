@@ -1,11 +1,30 @@
 use cocktail_catalogue_backend::configuration::{DatabaseSettings, CONFIG};
 use cocktail_catalogue_backend::server;
+use serde_json::json;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::net::TcpListener;
 
 pub struct TestApp {
     pub address: String,
     pub db_pool: PgPool,
+}
+
+pub async fn graphql_request(address: &str, query: &str) -> reqwest::Response {
+    let client = reqwest::Client::new();
+    let body = json!({
+        "query": query,
+        "variables": null
+    });
+
+    let res = client
+        .post(&format!("{}/graphql", &address))
+        .body(body.to_string())
+        .header("Content-Type", "application/json")
+        .send()
+        .await
+        .expect("failed to execute request");
+
+    res
 }
 
 pub async fn spawn_app() -> TestApp {

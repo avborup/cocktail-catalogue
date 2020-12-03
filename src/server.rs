@@ -40,8 +40,9 @@ async fn health_check() -> impl Responder {
 }
 
 pub fn start(listener: TcpListener, db_pool: PgPool) -> io::Result<actix_web::dev::Server> {
-    std::env::set_var("RUST_LOG", "actix_web=info");
-    env_logger::init();
+    // Initialising env-logger multiple times panics, which breaks tests
+    // std::env::set_var("RUST_LOG", "actix_web=info");
+    // env_logger::init();
 
     let sch = web::Data::new(Arc::new(schema::create_schema()));
     let ctx = web::Data::new(Arc::new(schema::Context { db: db_pool }));
