@@ -3,5 +3,5 @@ CREATE TABLE ingredients (
     label TEXT NOT NULL,
     amount REAL,
     unit CHAR(2) CHECK (unit IN ('oz', 'ml')),
-    ingredient_type_id INTEGER REFERENCES ingredient_types
+    ingredient_type_id UUID REFERENCES ingredient_types
 );

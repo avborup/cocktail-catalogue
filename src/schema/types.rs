@@ -22,3 +22,14 @@ pub struct User {
     pub name: String,
     pub id: Uuid,
 }
+
+#[derive(juniper::GraphQLInputObject, Debug)]
+pub struct NewIngredientType {
+    pub label: String,
+}
+
+#[derive(juniper::GraphQLObject, Debug)]
+pub struct IngredientType {
+    pub id: Uuid,
+    pub label: String,
+}

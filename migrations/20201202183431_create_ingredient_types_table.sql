@@ -1,5 +1,5 @@
 CREATE TABLE ingredient_types (
-    id SERIAL NOT NULL,
-    label TEXT NOT NULL,
+    id UUID NOT NULL,
+    label TEXT NOT NULL UNIQUE,
     PRIMARY KEY (id)
 );

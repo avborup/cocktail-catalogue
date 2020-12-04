@@ -1,4 +1,4 @@
-use crate::schema::types::{Cocktail, NewCocktail, User};
+use crate::schema::types::{Cocktail, IngredientType, NewCocktail, NewIngredientType, User};
 use crate::schema::Context;
 use chrono::Utc;
 use juniper::{graphql_object, FieldResult};
@@ -44,5 +44,26 @@ impl Mutation {
         };
 
         Ok(cocktail)
+    }
+
+    async fn createIngredientType(
+        context: &Context,
+        new_ingredient_type: NewIngredientType,
+    ) -> FieldResult<IngredientType> {
+        let id = Uuid::new_v4();
+        let ingredient_type = sqlx::query_as!(
+            IngredientType,
+            "
+            INSERT INTO ingredient_types (id, label)
+            VALUES ($1, $2)
+            RETURNING id, label
+            ",
+            id,
+            new_ingredient_type.label,
+        )
+        .fetch_one(&context.db)
+        .await?;
+
+        Ok(ingredient_type)
     }
 }

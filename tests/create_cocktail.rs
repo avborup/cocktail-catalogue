@@ -176,3 +176,72 @@ async fn create_cocktail_saves_in_db() {
     );
     assert_eq!(cocktail.date_added, date_added);
 }
+
+#[actix_rt::test]
+async fn create_ingredient_type_returns_id_and_label() {
+    let app = spawn_app().await;
+
+    let res = graphql_request(
+        &app.address,
+        r#"
+          mutation {
+            createIngredientType(newIngredientType: { label: "Amaretto" }) {
+              id
+              label
+            }
+          }
+        "#,
+    )
+    .await;
+
+    assert!(res.status().is_success());
+
+    let json: serde_json::Value = res.json().await.expect("failed to read body of response");
+    let id_parse_result = Uuid::parse_str(
+        json.pointer("/data/createIngredientType/id")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+    );
+    let label = json
+        .pointer("/data/createIngredientType/label")
+        .unwrap()
+        .as_str()
+        .unwrap();
+
+    assert!(id_parse_result.is_ok());
+    assert_eq!(label, "Amaretto");
+}
+
+#[actix_rt::test]
+async fn create_ingredient_type_errors_on_duplicate() {
+    let app = spawn_app().await;
+    let query = r#"
+      mutation {
+        createIngredientType(newIngredientType: { label: "Amaretto" }) {
+          id
+          label
+        }
+      }
+    "#;
+
+    let res_first = graphql_request(&app.address, query).await;
+    let res_second = graphql_request(&app.address, query).await;
+
+    assert!(res_first.status().is_success());
+    assert!(res_second.status().is_success());
+
+    let json_first: serde_json::Value = res_first
+        .json()
+        .await
+        .expect("failed to read body of response");
+    let json_second: serde_json::Value = res_second
+        .json()
+        .await
+        .expect("failed to read body of response");
+
+    assert!(json_first["data"].is_object());
+    assert!(json_first["errors"].is_null());
+    assert!(json_second["data"].is_null());
+    assert!(json_second["errors"].is_array());
+}
