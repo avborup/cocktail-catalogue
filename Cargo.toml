@@ -15,13 +15,16 @@ name = "app"
 rusqlite = { version = "0.21.0", features = [ "bundled" ] }
 serde = { version = "1.0.103", features = [ "derive" ] }
 serde_rusqlite = "0.23.0"
-juniper = "0.14.2"
-actix-web = "2.0.0"
-actix-rt = "1.0.0"
+# We use a custom fork of juniper where the uuid dependency is downgraded to
+# v0.7 from v0.8 because sqlx-macros fails to link on uuid v0.8. Hopefully, this
+# will be fixed in the future.
+juniper = { git = "https://github.com/KongBorup/juniper" }
+actix-web = "3"
+actix-rt = "1.1"
 env_logger = "0.7.1"
 serde_json = "1.0.44"
 serde_derive = "1.0.103"
-sqlx = { version = "0.4.0", default-features = false, features = [ "runtime-tokio-native-tls", "macros", "postgres", "uuid", "chrono", "migrate" ] }
+sqlx = { version = "0.4", default-features = false, features = [ "runtime-tokio-native-tls", "macros", "postgres", "uuid", "chrono", "migrate" ] }
 config = "0.10.1"
 lazy_static = "1.4.0"
 uuid = { version = "0.7", features = [ "v4" ] }

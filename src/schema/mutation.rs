@@ -1,17 +1,14 @@
 use crate::schema::types::{Cocktail, NewCocktail, User};
 use crate::schema::Context;
 use chrono::Utc;
-use juniper::FieldResult;
+use juniper::{FieldResult, graphql_object};
 use uuid::Uuid;
 
 pub struct Mutation;
 
-#[juniper::object(
-    Context = Context,
-)]
+#[graphql_object(context = Context)]
 impl Mutation {
-    async fn createCocktail(context: &Context, new_cocktail: NewCocktail) -> FieldResult<Cocktail> {
-        let db = &context.db;
+    async fn createCocktail(_context: &Context, new_cocktail: NewCocktail) -> FieldResult<Cocktail> {
         let id = Uuid::new_v4();
         let date_added = Utc::now();
 
