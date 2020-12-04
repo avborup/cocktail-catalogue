@@ -1,6 +1,6 @@
 mod helpers;
 
-use helpers::{spawn_app, graphql_request};
+use helpers::{graphql_request, spawn_app};
 use serde_json::json;
 
 #[actix_rt::test]

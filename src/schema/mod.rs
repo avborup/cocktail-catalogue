@@ -3,8 +3,8 @@ use juniper::RootNode;
 mod context;
 mod mutation;
 mod query;
-mod types;
 mod subscription;
+mod types;
 
 pub use context::Context;
 pub use mutation::Mutation;

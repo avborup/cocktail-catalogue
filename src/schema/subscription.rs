@@ -8,4 +8,4 @@ impl Subscription {
     async fn unimplemented() -> Option<&str> {
         None
     }
-} 
+}

@@ -1,6 +1,6 @@
 use crate::configuration::CONFIG;
 use crate::schema;
-use actix_web::{middleware, web, App, Error, HttpResponse, HttpServer, Responder, post, get};
+use actix_web::{get, middleware, post, web, App, Error, HttpResponse, HttpServer, Responder};
 use juniper::http::graphiql::graphiql_source;
 use juniper::http::GraphQLRequest;
 use sqlx::PgPool;
