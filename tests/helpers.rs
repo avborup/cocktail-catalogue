@@ -67,6 +67,7 @@ async fn configure_database(db_cfg: &DatabaseSettings) -> PgPool {
     db_pool
 }
 
+#[allow(dead_code)]
 pub async fn insert_user_in_db(name: &str, id: &str, db_pool: &PgPool) {
     sqlx::query!(
         "INSERT INTO users (id, name) VALUES ($1, $2)",
