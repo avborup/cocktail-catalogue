@@ -1,13 +1,21 @@
 mod helpers;
 
-use chrono::{DateTime, FixedOffset};
-use helpers::{graphql_request, spawn_app};
+use chrono::{DateTime, FixedOffset, Utc};
+use helpers::{graphql_request, insert_user_in_db, spawn_app};
 use serde_json::json;
 use uuid::Uuid;
 
 #[actix_rt::test]
 async fn create_cocktail_returns_same() {
     let app = spawn_app().await;
+
+    insert_user_in_db(
+        "Luke Skywalker",
+        "d54090a3-0886-45b1-a8a7-2ec46c0938fe",
+        &app.db_pool,
+    )
+    .await;
+
     let res = graphql_request(
         &app.address,
         r#"
@@ -37,7 +45,7 @@ async fn create_cocktail_returns_same() {
                 "name": "Amaretto Sour",
                 "author": {
                     "id": "d54090a3-0886-45b1-a8a7-2ec46c0938fe",
-                    "name": "Adrian"
+                    "name": "Luke Skywalker"
                 },
                 "source": "https://jeffreymorgenthaler.com/i-make-the-best-amaretto-sour-in-the-world/",
             }
@@ -51,6 +59,14 @@ async fn create_cocktail_returns_same() {
 #[actix_rt::test]
 async fn create_cocktail_returns_id_and_date_added() {
     let app = spawn_app().await;
+
+    insert_user_in_db(
+        "Luke Skywalker",
+        "d54090a3-0886-45b1-a8a7-2ec46c0938fe",
+        &app.db_pool,
+    )
+    .await;
+
     let res = graphql_request(
         &app.address,
         r#"
@@ -71,7 +87,6 @@ async fn create_cocktail_returns_id_and_date_added() {
     assert!(res.status().is_success());
 
     let json: serde_json::Value = res.json().await.expect("failed to read body of response");
-    dbg!(&json);
     let id_option = json.pointer("/data/createCocktail/id");
     let date_added_option = json.pointer("/data/createCocktail/dateAdded");
 
@@ -90,4 +105,74 @@ async fn create_cocktail_returns_id_and_date_added() {
 
     assert!(id_parse_result.is_ok());
     assert!(date_added_parse_result.is_ok());
+}
+
+#[actix_rt::test]
+async fn create_cocktail_saves_in_db() {
+    let app = spawn_app().await;
+
+    insert_user_in_db(
+        "Luke Skywalker",
+        "d54090a3-0886-45b1-a8a7-2ec46c0938fe",
+        &app.db_pool,
+    )
+    .await;
+
+    let res = graphql_request(
+        &app.address,
+        r#"
+          mutation {
+            createCocktail(newCocktail: {
+              name: "Amaretto Sour"
+              authorId: "d54090a3-0886-45b1-a8a7-2ec46c0938fe"
+              source: "https://jeffreymorgenthaler.com/i-make-the-best-amaretto-sour-in-the-world/"
+            }) {
+              id
+              dateAdded
+            }
+          }
+        "#,
+    )
+    .await;
+
+    assert!(res.status().is_success());
+
+    let json: serde_json::Value = res.json().await.expect("failed to read body of response");
+    let id = Uuid::parse_str(
+        json.pointer("/data/createCocktail/id")
+            .unwrap()
+            .as_str()
+            .unwrap(),
+    )
+    .unwrap();
+    let date_added: DateTime<Utc> = DateTime::from_utc(
+        DateTime::<FixedOffset>::parse_from_rfc3339(
+            json.pointer("/data/createCocktail/dateAdded")
+                .unwrap()
+                .as_str()
+                .unwrap(),
+        )
+        .unwrap()
+        .naive_utc(),
+        Utc,
+    );
+
+    let cocktail = sqlx::query!(
+        "SELECT name, author_id, source, date_added FROM cocktails WHERE id = $1",
+        id,
+    )
+    .fetch_one(&app.db_pool)
+    .await
+    .expect("failed to get cocktail from db");
+
+    assert_eq!(cocktail.name, "Amaretto Sour");
+    assert_eq!(
+        cocktail.author_id.to_string(),
+        "d54090a3-0886-45b1-a8a7-2ec46c0938fe"
+    );
+    assert_eq!(
+        cocktail.source.as_deref(),
+        Some("https://jeffreymorgenthaler.com/i-make-the-best-amaretto-sour-in-the-world/")
+    );
+    assert_eq!(cocktail.date_added, date_added);
 }

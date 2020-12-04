@@ -3,6 +3,7 @@ use cocktail_catalogue_backend::server;
 use serde_json::json;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::net::TcpListener;
+use uuid::Uuid;
 
 pub struct TestApp {
     pub address: String,
@@ -64,4 +65,15 @@ async fn configure_database(db_cfg: &DatabaseSettings) -> PgPool {
         .expect("failed to migrate database");
 
     db_pool
+}
+
+pub async fn insert_user_in_db(name: &str, id: &str, db_pool: &PgPool) {
+    sqlx::query!(
+        "INSERT INTO users (id, name) VALUES ($1, $2)",
+        Uuid::parse_str(id).expect("failed to parse user uuid"),
+        name
+    )
+    .execute(db_pool)
+    .await
+    .expect("failed to insert user into db");
 }
