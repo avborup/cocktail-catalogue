@@ -6,9 +6,10 @@ use serde_json::json;
 use uuid::Uuid;
 
 #[actix_rt::test]
-async fn create_cocktail_returns_same() {
+async fn create_cocktail_returns_expected() {
     let app = spawn_app().await;
 
+    // Prepare user
     insert_user_in_db(
         "Luke Skywalker",
         "d54090a3-0886-45b1-a8a7-2ec46c0938fe",
@@ -16,24 +17,96 @@ async fn create_cocktail_returns_same() {
     )
     .await;
 
+    // Prepare ingredient types
+    let res_amaretto = graphql_request(
+        &app.address,
+        r#"
+          mutation {
+            createIngredientType(newIngredientType: { label: "Amaretto" }) {
+              id
+              label
+            }
+          }
+        "#,
+    )
+    .await;
+    let amaretto_json: serde_json::Value = res_amaretto
+        .json()
+        .await
+        .expect("failed to read body of response");
+    let amaretto_id = amaretto_json
+        .pointer("/data/createIngredientType/id")
+        .unwrap()
+        .as_str()
+        .unwrap();
+
+    let res_bourbon = graphql_request(
+        &app.address,
+        r#"
+          mutation {
+            createIngredientType(newIngredientType: { label: "Bourbon" }) {
+              id
+              label
+            }
+          }
+        "#,
+    )
+    .await;
+    let bourbon_json: serde_json::Value = res_bourbon
+        .json()
+        .await
+        .expect("failed to read body of response");
+    let bourbon_id = bourbon_json
+        .pointer("/data/createIngredientType/id")
+        .unwrap()
+        .as_str()
+        .unwrap();
+
+    // Main request
     let res = graphql_request(
         &app.address,
         r#"
           mutation {
             createCocktail(newCocktail: {
-              name: "Amaretto Sour"
-              authorId: "d54090a3-0886-45b1-a8a7-2ec46c0938fe"
-              source: "https://jeffreymorgenthaler.com/i-make-the-best-amaretto-sour-in-the-world/"
+             name: "Amaretto Sour"
+             authorId: "d54090a3-0886-45b1-a8a7-2ec46c0938fe"
+             source: "https://jeffreymorgenthaler.com/i-make-the-best-amaretto-sour-in-the-world/"
+             ingredients: [
+               {
+                 label: "Amaretto"
+                 amount: 1.5
+                 unit: "oz"
+                 ingredientTypeId: "$amaretto_id"
+               }
+               {
+                 label: "Cask-proof bourbon"
+                 amount: 0.75
+                 unit: "oz"
+                 ingredientTypeId: "$bourbon_id"
+               }
+             ]
             }) {
-              name
-              author {
-                id
-                name
-              }
-              source
+             name
+             author {
+               id
+               name
+             }
+             source
+             ingredients {
+               label
+               amount
+               unit
+               ingredientType {
+                 id
+                 label
+               }
+             }
             }
           }
-        "#,
+        "#
+        .replace("$amaretto_id", amaretto_id)
+        .replace("$bourbon_id", bourbon_id)
+        .as_ref(),
     )
     .await;
 
@@ -48,6 +121,26 @@ async fn create_cocktail_returns_same() {
                     "name": "Luke Skywalker"
                 },
                 "source": "https://jeffreymorgenthaler.com/i-make-the-best-amaretto-sour-in-the-world/",
+                "ingredients": [
+                    {
+                        "label": "Amaretto",
+                        "amount": 1.5,
+                        "unit": "oz",
+                        "ingredientType": {
+                            "id": amaretto_id,
+                            "label": "Amaretto"
+                        }
+                    },
+                    {
+                        "label": "Cask-proof bourbon",
+                        "amount": 0.75,
+                        "unit": "oz",
+                        "ingredientType": {
+                            "id": bourbon_id,
+                            "label": "Bourbon"
+                        }
+                    }
+                ]
             }
         }
     });
@@ -75,6 +168,7 @@ async fn create_cocktail_returns_id_and_date_added() {
               name: "Amaretto Sour"
               authorId: "d54090a3-0886-45b1-a8a7-2ec46c0938fe"
               source: "https://jeffreymorgenthaler.com/i-make-the-best-amaretto-sour-in-the-world/"
+              ingredients: []
             }) {
               id
               dateAdded
@@ -126,6 +220,7 @@ async fn create_cocktail_saves_in_db() {
               name: "Amaretto Sour"
               authorId: "d54090a3-0886-45b1-a8a7-2ec46c0938fe"
               source: "https://jeffreymorgenthaler.com/i-make-the-best-amaretto-sour-in-the-world/"
+              ingredients: []
             }) {
               id
               dateAdded
