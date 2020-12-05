@@ -10,7 +10,10 @@ pub struct Mutation;
 
 #[graphql_object(context = Context)]
 impl Mutation {
-    async fn createCocktail(context: &Context, new_cocktail: NewCocktail) -> FieldResult<Cocktail> {
+    async fn create_cocktail(
+        context: &Context,
+        new_cocktail: NewCocktail,
+    ) -> FieldResult<Cocktail> {
         let author = sqlx::query_as!(
             User,
             "SELECT id, name FROM users WHERE id = $1",
@@ -83,7 +86,7 @@ impl Mutation {
         Ok(cocktail)
     }
 
-    async fn createIngredientType(
+    async fn create_ingredient_type(
         context: &Context,
         new_ingredient_type: NewIngredientType,
     ) -> FieldResult<IngredientType> {
