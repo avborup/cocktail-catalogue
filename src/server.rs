@@ -8,41 +8,6 @@ use std::io;
 use std::net::TcpListener;
 use std::sync::Arc;
 
-#[get("/graphiql")]
-async fn graphiql() -> HttpResponse {
-    let html = graphiql_source(
-        &format!(
-            "http://{}:{}/graphql",
-            CONFIG.server_host, CONFIG.server_port
-        ),
-        None,
-    );
-
-    HttpResponse::Ok()
-        .content_type("text/html; charset=utf-8")
-        .body(html)
-}
-
-#[post("/graphql")]
-async fn graphql(
-    sch: web::Data<Arc<schema::Schema>>,
-    ctx: web::Data<Arc<schema::Context>>,
-    data: web::Json<GraphQLRequest>,
-) -> Result<HttpResponse, Error> {
-    let ret = data.execute(&sch, &ctx).await;
-    let json_str = serde_json::to_string(&ret)?;
-    let res = HttpResponse::Ok()
-        .content_type("application/json")
-        .body(json_str);
-
-    Ok(res)
-}
-
-#[get("/health_check")]
-async fn health_check() -> impl Responder {
-    HttpResponse::Ok()
-}
-
 pub fn start(listener: TcpListener, db_pool: PgPool) -> io::Result<actix_web::dev::Server> {
     // Initialising env-logger multiple times panics, which breaks tests
     // std::env::set_var("RUST_LOG", "actix_web=info");
@@ -64,4 +29,39 @@ pub fn start(listener: TcpListener, db_pool: PgPool) -> io::Result<actix_web::de
     .run();
 
     Ok(server)
+}
+
+#[post("/graphql")]
+async fn graphql(
+    sch: web::Data<Arc<schema::Schema>>,
+    ctx: web::Data<Arc<schema::Context>>,
+    data: web::Json<GraphQLRequest>,
+) -> Result<HttpResponse, Error> {
+    let ret = data.execute(&sch, &ctx).await;
+    let json_str = serde_json::to_string(&ret)?;
+    let res = HttpResponse::Ok()
+        .content_type("application/json")
+        .body(json_str);
+
+    Ok(res)
+}
+
+#[get("/graphiql")]
+async fn graphiql() -> HttpResponse {
+    let html = graphiql_source(
+        &format!(
+            "http://{}:{}/graphql",
+            CONFIG.server_host, CONFIG.server_port
+        ),
+        None,
+    );
+
+    HttpResponse::Ok()
+        .content_type("text/html; charset=utf-8")
+        .body(html)
+}
+
+#[get("/health_check")]
+async fn health_check() -> impl Responder {
+    HttpResponse::Ok()
 }
