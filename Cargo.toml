@@ -12,7 +12,7 @@ path = "src/main.rs"
 name = "app"
 
 [dependencies]
-juniper = { git = "https://github.com/graphql-rust/juniper" }
+juniper = "0.15"
 actix-web = "3"
 actix-rt = "1.1"
 sqlx = { version = "0.4", default-features = false, features = [ "runtime-tokio-native-tls", "macros", "postgres", "uuid", "chrono", "migrate" ] }
