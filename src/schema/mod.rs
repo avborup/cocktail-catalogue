@@ -4,7 +4,7 @@ mod context;
 mod mutation;
 mod query;
 mod subscription;
-mod types;
+pub mod types;
 
 pub use context::Context;
 pub use mutation::Mutation;
