@@ -43,12 +43,6 @@ pub async fn insert_new_cocktail(
     Ok(cocktail)
 }
 
-async fn get_user(db: &PgPool, user_id: Uuid) -> Result<User, sqlx::error::Error> {
-    sqlx::query_as!(User, "SELECT id, name FROM users WHERE id = $1", user_id,)
-        .fetch_one(db)
-        .await
-}
-
 async fn insert_new_ingredients(
     db: &PgPool,
     cocktail_id: Uuid,
@@ -57,40 +51,62 @@ async fn insert_new_ingredients(
     let mut ingredients = Vec::with_capacity(new_ingredients.len());
 
     for new_ingredient in new_ingredients {
-        let ingredient_type = sqlx::query_as!(
-            IngredientType,
-            "SELECT id, label FROM ingredient_types WHERE id = $1",
-            new_ingredient.ingredient_type_id,
-        )
-        .fetch_optional(db)
-        .await?;
-
-        let db_output = sqlx::query!(
-            "
-            INSERT INTO ingredients (cocktail_id, label, amount, unit, ingredient_type_id)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING label, amount, unit
-            ",
-            cocktail_id,
-            new_ingredient.label,
-            new_ingredient.amount,
-            new_ingredient.unit,
-            new_ingredient.ingredient_type_id
-        )
-        .fetch_one(db)
-        .await?;
-
-        let ingredient = Ingredient {
-            label: db_output.label,
-            amount: db_output.amount,
-            unit: db_output.unit,
-            ingredient_type,
-        };
-
+        let ingredient = insert_new_ingredient(db, cocktail_id, &new_ingredient).await?;
         ingredients.push(ingredient);
     }
 
     Ok(ingredients)
+}
+
+async fn insert_new_ingredient(
+    db: &PgPool,
+    cocktail_id: Uuid,
+    new_ingredient: &NewIngredient,
+) -> Result<Ingredient, sqlx::error::Error> {
+    let ingredient_type = get_ingredient_type(db, new_ingredient.ingredient_type_id).await?;
+
+    let db_output = sqlx::query!(
+        "
+        INSERT INTO ingredients (cocktail_id, label, amount, unit, ingredient_type_id)
+        VALUES ($1, $2, $3, $4, $5)
+        RETURNING label, amount, unit
+        ",
+        cocktail_id,
+        new_ingredient.label,
+        new_ingredient.amount,
+        new_ingredient.unit,
+        new_ingredient.ingredient_type_id
+    )
+    .fetch_one(db)
+    .await?;
+
+    let ingredient = Ingredient {
+        label: db_output.label,
+        amount: db_output.amount,
+        unit: db_output.unit,
+        ingredient_type,
+    };
+
+    Ok(ingredient)
+}
+
+async fn get_user(db: &PgPool, user_id: Uuid) -> Result<User, sqlx::error::Error> {
+    sqlx::query_as!(User, "SELECT id, name FROM users WHERE id = $1", user_id,)
+        .fetch_one(db)
+        .await
+}
+
+async fn get_ingredient_type(
+    db: &PgPool,
+    ingredient_type_id: Option<Uuid>,
+) -> Result<Option<IngredientType>, sqlx::error::Error> {
+    sqlx::query_as!(
+        IngredientType,
+        "SELECT id, label FROM ingredient_types WHERE id = $1",
+        ingredient_type_id,
+    )
+    .fetch_optional(db)
+    .await
 }
 
 pub async fn insert_new_ingredient_type(
