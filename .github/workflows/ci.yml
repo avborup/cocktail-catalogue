@@ -1,0 +1,43 @@
+name: Rust CI
+
+on: [push]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  rustfmt:
+    name: Rustfmt
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt
+      - run: cargo fmt --check
+
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: sqlite:cocktails.db
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - run: cargo install sqlx-cli --features sqlite
+      - run: sqlx db setup
+      - run: cargo clippy --tests
+
+  tests:
+    name: Run tests
+    runs-on: ubuntu-latest
+    env:
+      DATABASE_URL: sqlite:cocktails.db
+    steps:
+      - uses: actions/checkout@v3
+      - uses: dtolnay/rust-toolchain@stable
+      - run: cargo install sqlx-cli --features sqlite
+      - run: sqlx db setup
+      - run: cargo test

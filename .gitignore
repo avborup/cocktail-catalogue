@@ -1,8 +1,9 @@
 /target
 **/*.rs.bk
 
-src/sql
-*.db
-
 /vendor
 /.cargo
+
+*.db
+*.db-shm
+*.db-wal

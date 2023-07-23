@@ -1,23 +1,45 @@
-use std::sync::{Arc, Mutex};
+use std::{env, net::TcpListener};
 
-mod database;
-mod server;
-mod schema;
-mod utils;
+use cocktail_catalogue::{
+    configuration::{AppSettings, ServerSettings},
+    logging,
+};
+use eyre::Context;
+use sqlx::SqlitePool;
+use tracing_subscriber::util::SubscriberInitExt;
 
-const DB_LOCATION: &str = "test.db";
+#[tokio::main]
+async fn main() -> eyre::Result<()> {
+    color_eyre::install()?;
 
-// FIXME: Don't return Result here.. Handle the error! Do something fancy like
-// sending myself a message if everything crashes or simply printing the issue.
-#[actix_rt::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let db = Mutex::new(database::Database::open(DB_LOCATION)?);
+    logging::get_subscriber_with_fallback(
+        "cocktail_catalogue=debug,tower_http=info",
+        std::io::stdout,
+    )
+    .init();
 
-    let sch = Arc::new(schema::create_schema());
-    let ctx = Arc::new(schema::Context { db });
+    let config = AppSettings {
+        server: ServerSettings {
+            port: 1337,
+            host: "127.0.0.1".to_string(),
+        },
+    };
 
-    server::start(sch, ctx)?.await?;
+    let db_connection_string = env::var("DATABASE_URL").wrap_err("DATABASE_URL must be set")?;
+
+    let db = SqlitePool::connect(&db_connection_string)
+        .await
+        .wrap_err("Failed to connect to database")?;
+
+    let listener = TcpListener::bind((config.server.host.as_ref(), config.server.port))
+        .wrap_err_with(|| {
+            format!(
+                "Failed to bind address {}:{}",
+                config.server.host, config.server.port
+            )
+        })?;
+
+    cocktail_catalogue::run(listener, db).await?;
 
     Ok(())
 }
-
