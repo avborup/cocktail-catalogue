@@ -3,6 +3,8 @@
 
 src/sql
 *.db
+*.db-shm
+*.db-wal
 
 /vendor
 /.cargo
