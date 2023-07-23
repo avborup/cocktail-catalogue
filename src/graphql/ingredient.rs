@@ -1,21 +1,18 @@
-use async_graphql::{InputObject, OneofObject, SimpleObject};
+use async_graphql::{InputObject, SimpleObject};
 use uuid::Uuid;
 
 #[derive(SimpleObject, Debug)]
 pub struct Ingredient {
     pub id: Uuid,
-    pub name: String,
+    pub label: String,
+    pub amount: Option<f64>,
+    pub unit: Option<String>,
 }
 
 #[derive(InputObject, Debug)]
 pub struct NewIngredient {
-    pub name: String,
-}
-
-#[derive(OneofObject, Debug)]
-pub enum IngredientSource {
-    /// A new ingredient.
-    New(NewIngredient),
-    /// The ID of an existing ingredient.
-    Existing(Uuid),
+    #[graphql(validator(min_length = 1))]
+    pub label: String,
+    pub amount: Option<f64>,
+    pub unit: Option<String>,
 }

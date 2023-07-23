@@ -2,7 +2,7 @@ use async_graphql::{ComplexObject, Context, InputObject, Object, SimpleObject};
 use sqlx::SqlitePool;
 use uuid::Uuid;
 
-use super::ingredient::{Ingredient, IngredientSource};
+use super::ingredient::{Ingredient, NewIngredient};
 
 #[derive(SimpleObject, Debug)]
 #[graphql(complex)]
@@ -19,9 +19,8 @@ impl Cocktail {
         let ingredients = sqlx::query_as!(
             Ingredient,
             r#"
-            SELECT id as "id: Uuid", name
-            FROM cocktail_ingredients
-            JOIN ingredients ON ingredients.id = cocktail_ingredients.ingredient_id
+            SELECT id as "id: Uuid", label, unit, amount
+            FROM ingredients
             WHERE cocktail_id = ?1
             "#,
             self.id
@@ -37,7 +36,7 @@ impl Cocktail {
 pub struct NewCocktail {
     #[graphql(validator(min_length = 1))]
     pub name: String,
-    pub ingredients: Vec<IngredientSource>,
+    pub ingredients: Vec<NewIngredient>,
 }
 
 impl NewCocktail {
@@ -112,33 +111,18 @@ impl CocktailMutation {
         .await?;
 
         for ingredient in &new_cocktail.ingredients {
-            let ingredient_id = match ingredient {
-                IngredientSource::Existing(id) => *id,
-                IngredientSource::New(ingredient) => {
-                    let ingredient_id = Uuid::new_v4();
-
-                    sqlx::query!(
-                        r#"
-                        INSERT INTO ingredients (id, name)
-                        VALUES (?1, ?2)
-                        "#,
-                        ingredient_id,
-                        ingredient.name,
-                    )
-                    .execute(&mut *transaction)
-                    .await?;
-
-                    ingredient_id
-                }
-            };
+            let ingredient_id = Uuid::new_v4();
 
             sqlx::query!(
                 r#"
-                INSERT INTO cocktail_ingredients (cocktail_id, ingredient_id)
-                VALUES (?1, ?2)
+                INSERT INTO ingredients (id, cocktail_id, label, unit, amount)
+                VALUES (?1, ?2, ?3, ?4, ?5)
                 "#,
+                ingredient_id,
                 cocktail_id,
-                ingredient_id
+                ingredient.label,
+                ingredient.unit,
+                ingredient.amount
             )
             .execute(&mut *transaction)
             .await?;
