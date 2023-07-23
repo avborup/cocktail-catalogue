@@ -1,11 +1,26 @@
 use std::net::TcpListener;
 
-use axum::{http, response::IntoResponse, routing::get, Router};
+use async_graphql::{
+    http::{playground_source, GraphQLPlaygroundConfig},
+    EmptySubscription, Request, Response, Schema,
+};
+use axum::{
+    debug_handler,
+    extract::{FromRef, State},
+    http,
+    response::{Html, IntoResponse},
+    routing::get,
+    Json, Router,
+};
 use configuration::AppSettings;
 use eyre::Context;
+use graphql::{MutationRoot, QueryRoot};
 use sqlx::SqlitePool;
 
+use crate::graphql::ApiSchema;
+
 pub mod configuration;
+mod graphql;
 pub mod logging;
 
 pub async fn create_app(config: &AppSettings) -> eyre::Result<Router> {
@@ -13,9 +28,18 @@ pub async fn create_app(config: &AppSettings) -> eyre::Result<Router> {
         .await
         .wrap_err("Failed to connect to database")?;
 
-    let server_state = ServerState { _db: db };
+    let schema = Schema::build(
+        QueryRoot::default(),
+        MutationRoot::default(),
+        EmptySubscription,
+    )
+    .data::<SqlitePool>(db)
+    .finish();
+
+    let server_state = ServerState { schema };
 
     let router = Router::new()
+        .route("/", get(graphql_playground).post(graphql_handler))
         .route("/health_check", get(health_check))
         .with_state(server_state)
         .layer(logging::make_http_span_layer());
@@ -23,9 +47,9 @@ pub async fn create_app(config: &AppSettings) -> eyre::Result<Router> {
     Ok(router)
 }
 
-#[derive(Debug, Clone)]
+#[derive(Clone, FromRef)]
 pub struct ServerState {
-    _db: SqlitePool,
+    schema: ApiSchema,
 }
 
 pub async fn run(config: &AppSettings) -> eyre::Result<()> {
@@ -41,6 +65,19 @@ pub async fn run(config: &AppSettings) -> eyre::Result<()> {
         .await?;
 
     Ok(())
+}
+
+#[tracing::instrument(name = "GraphQL", skip_all)]
+#[debug_handler(state = ServerState)]
+async fn graphql_handler(
+    State(schema): State<ApiSchema>,
+    Json(request): Json<Request>,
+) -> Json<Response> {
+    schema.execute(request).await.into()
+}
+
+async fn graphql_playground() -> impl IntoResponse {
+    Html(playground_source(GraphQLPlaygroundConfig::new("/")))
 }
 
 async fn health_check() -> impl IntoResponse {
