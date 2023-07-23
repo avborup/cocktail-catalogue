@@ -1,16 +1,9 @@
 /target
 **/*.rs.bk
 
-src/sql
-*.db
-*.db-shm
-*.db-wal
-
 /vendor
 /.cargo
 
-# Added by cargo
-#
-# already existing elements were commented out
-
-#/target
+*.db
+*.db-shm
+*.db-wal
