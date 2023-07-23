@@ -1,8 +1,18 @@
-use cocktail_catalogue::configuration::{AppSettings, DatabaseSettings, ServerSettings};
+use cocktail_catalogue::{
+    configuration::{AppSettings, DatabaseSettings, ServerSettings},
+    logging,
+};
+use tracing_subscriber::util::SubscriberInitExt;
 
 #[tokio::main]
 async fn main() -> eyre::Result<()> {
     color_eyre::install()?;
+
+    logging::get_subscriber_with_fallback(
+        "cocktail_catalogue=debug,tower_http=debug",
+        std::io::stdout,
+    )
+    .init();
 
     let config = AppSettings {
         server: ServerSettings {

@@ -6,6 +6,7 @@ use eyre::Context;
 use sqlx::SqlitePool;
 
 pub mod configuration;
+pub mod logging;
 
 pub async fn create_app(config: &AppSettings) -> eyre::Result<Router> {
     let db = SqlitePool::connect(&config.database.connection_string)
@@ -16,7 +17,8 @@ pub async fn create_app(config: &AppSettings) -> eyre::Result<Router> {
 
     let router = Router::new()
         .route("/health_check", get(health_check))
-        .with_state(server_state);
+        .with_state(server_state)
+        .layer(logging::make_http_span_layer());
 
     Ok(router)
 }
@@ -29,7 +31,10 @@ pub struct ServerState {
 pub async fn run(config: &AppSettings) -> eyre::Result<()> {
     let app = create_app(config).await?;
 
-    let listener = TcpListener::bind((config.server.host.as_str(), config.server.port))?;
+    let address = format!("{}:{}", config.server.host, config.server.port);
+    let listener = TcpListener::bind(&address)?;
+
+    tracing::info!("Listening on http://{}", address);
 
     axum::Server::from_tcp(listener)?
         .serve(app.into_make_service())
