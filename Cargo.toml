@@ -7,11 +7,11 @@ edition = "2021"
 axum = { version = "0.6", features = ["headers", "macros"] }
 tower-http = { version = "0.4", features = ["trace"] }
 tokio = { version = "1.29", features = ["full"] }
-sqlx = { version = "0.7", features = [ "runtime-tokio", "tls-native-tls", "sqlite" ] }
+sqlx = { version = "0.7", features = [ "runtime-tokio", "tls-native-tls", "sqlite", "uuid" ] }
 color-eyre = "0.6"
 eyre = "0.6"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-bunyan-formatter = "0.3"
 uuid = { version = "1.4.1", features = ["v4"] }
-async-graphql = "5.0.10"
+async-graphql = { version = "5.0.10", features = ["uuid"] }

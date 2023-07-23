@@ -3,6 +3,7 @@ use async_graphql::{EmptySubscription, Schema};
 pub(crate) use mutation::MutationRoot;
 pub(crate) use query::QueryRoot;
 
+mod cocktail;
 mod mutation;
 mod query;
 

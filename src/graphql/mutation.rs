@@ -1,3 +1,6 @@
-use async_graphql::EmptyMutation;
+use async_graphql::MergedObject;
 
-pub(crate) type MutationRoot = EmptyMutation;
+use super::cocktail::CocktailMutation;
+
+#[derive(MergedObject, Default)]
+pub(crate) struct MutationRoot(CocktailMutation);

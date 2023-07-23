@@ -1,9 +1,9 @@
 use async_graphql::{MergedObject, Object};
 
-use super::VERSION;
+use super::{cocktail::CocktailQuery, VERSION};
 
 #[derive(MergedObject, Default)]
-pub struct QueryRoot(GeneralQuery);
+pub struct QueryRoot(GeneralQuery, CocktailQuery);
 
 #[derive(Default)]
 pub struct GeneralQuery;
