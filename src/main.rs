@@ -9,7 +9,7 @@ async fn main() -> eyre::Result<()> {
     color_eyre::install()?;
 
     logging::get_subscriber_with_fallback(
-        "cocktail_catalogue=debug,tower_http=debug",
+        "cocktail_catalogue=debug,tower_http=info",
         std::io::stdout,
     )
     .init();
