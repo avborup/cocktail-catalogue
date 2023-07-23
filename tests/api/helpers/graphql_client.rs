@@ -72,19 +72,24 @@ impl GraphQLResponse {
         assert_eq!(self.body["errors"], Value::Null);
     }
 
-    pub fn get_string(&self, pointer: impl AsRef<str>) -> &str {
+    pub fn get(&self, pointer: impl AsRef<str>) -> &Value {
         let pointer = pointer.as_ref();
-        let value = self.body.pointer(pointer).unwrap_or_else(|| {
+        self.body.pointer(pointer).unwrap_or_else(|| {
             panic!(
                 "No value found at {pointer}, body: {}",
                 to_string_pretty(&self.body).unwrap()
             )
-        });
+        })
+    }
+
+    pub fn get_string(&self, pointer: impl AsRef<str>) -> &str {
+        let pointer = pointer.as_ref();
+        let value = self.get(pointer);
 
         value.as_str().unwrap_or_else(|| {
             panic!(
                 "Value at {pointer} was not a string: {}",
-                to_string_pretty(&value).unwrap()
+                to_string_pretty(value).unwrap()
             )
         })
     }

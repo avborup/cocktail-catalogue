@@ -10,6 +10,7 @@ pub struct Cocktail {
 
 #[derive(InputObject, Debug)]
 pub struct NewCocktail {
+    #[graphql(validator(min_length = 1))]
     pub name: String,
 }
 
