@@ -12,8 +12,6 @@ use axum::{
     routing::get,
     Json, Router,
 };
-use configuration::AppSettings;
-use eyre::Context;
 use graphql::{MutationRoot, QueryRoot};
 use sqlx::SqlitePool;
 
@@ -23,11 +21,7 @@ pub mod configuration;
 mod graphql;
 pub mod logging;
 
-pub async fn create_app(config: &AppSettings) -> eyre::Result<Router> {
-    let db = SqlitePool::connect(&config.database.connection_string)
-        .await
-        .wrap_err("Failed to connect to database")?;
-
+pub async fn create_app(db: SqlitePool) -> eyre::Result<Router> {
     let schema = Schema::build(
         QueryRoot::default(),
         MutationRoot::default(),
@@ -52,13 +46,10 @@ pub struct ServerState {
     schema: ApiSchema,
 }
 
-pub async fn run(config: &AppSettings) -> eyre::Result<()> {
-    let app = create_app(config).await?;
+pub async fn run(listener: TcpListener, db: SqlitePool) -> eyre::Result<()> {
+    let app = create_app(db).await?;
 
-    let address = format!("{}:{}", config.server.host, config.server.port);
-    let listener = TcpListener::bind(&address)?;
-
-    tracing::info!("Listening on http://{}", address);
+    tracing::info!("Listening on {}", listener.local_addr()?);
 
     axum::Server::from_tcp(listener)?
         .serve(app.into_make_service())
