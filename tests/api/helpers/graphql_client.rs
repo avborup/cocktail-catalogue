@@ -29,11 +29,14 @@ impl GraphQLClient {
     async fn send_query(
         &self,
         query: impl AsRef<str>,
-        variables: Option<Value>,
+        variables: Option<impl Deref<Target = Value>>,
     ) -> GraphQLResponse {
+        let variables = variables.as_deref()
+            .unwrap_or(&Value::Null);
+
         let body = json!({
             "query": query.as_ref(),
-            "variables": variables.unwrap_or(Value::Null),
+            "variables": variables,
         });
 
         let res = self
@@ -57,7 +60,7 @@ impl GraphQLClient {
     pub async fn query_with_vars(
         &self,
         query: impl AsRef<str>,
-        variables: Value,
+        variables: impl Deref<Target = Value>,
     ) -> GraphQLResponse {
         self.send_query(query, Some(variables)).await
     }
@@ -89,6 +92,18 @@ impl GraphQLResponse {
         value.as_str().unwrap_or_else(|| {
             panic!(
                 "Value at {pointer} was not a string: {}",
+                to_string_pretty(value).unwrap()
+            )
+        })
+    }
+
+    pub fn get_array(&self, pointer: impl AsRef<str>) -> &Vec<Value> {
+        let pointer = pointer.as_ref();
+        let value = self.get(pointer);
+
+        value.as_array().unwrap_or_else(|| {
+            panic!(
+                "Value at {pointer} was not an array: {}",
                 to_string_pretty(value).unwrap()
             )
         })

@@ -11,6 +11,7 @@ use tracing_subscriber::util::SubscriberInitExt;
 use self::graphql_client::GraphQLClient;
 
 mod graphql_client;
+pub mod test_data;
 
 // If the a global tracing subscriber is set as default (via .init()) more than
 // once, a panic will occur. We use once_cell to only initialise once.
