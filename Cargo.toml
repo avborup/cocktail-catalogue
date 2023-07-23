@@ -15,6 +15,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 tracing-bunyan-formatter = "0.3"
 uuid = { version = "1.4.1", features = ["v4"] }
 async-graphql = { version = "5.0.10", features = ["uuid"] }
+futures-util = "0.3.28"
 
 [dev-dependencies]
 once_cell = "1.18.0"

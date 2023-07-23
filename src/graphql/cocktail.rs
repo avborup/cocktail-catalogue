@@ -1,17 +1,43 @@
-use async_graphql::{Context, InputObject, Object, SimpleObject};
+use async_graphql::{ComplexObject, Context, InputObject, Object, SimpleObject};
 use sqlx::SqlitePool;
 use uuid::Uuid;
 
+use super::ingredient::{Ingredient, IngredientSource};
+
 #[derive(SimpleObject, Debug)]
+#[graphql(complex)]
 pub struct Cocktail {
     pub id: Uuid,
     pub name: String,
+}
+
+#[ComplexObject]
+impl Cocktail {
+    async fn ingredients(&self, ctx: &Context<'_>) -> async_graphql::Result<Vec<Ingredient>> {
+        let db = ctx.data::<SqlitePool>()?;
+
+        let ingredients = sqlx::query_as!(
+            Ingredient,
+            r#"
+            SELECT id as "id: Uuid", name
+            FROM cocktail_ingredients
+            JOIN ingredients ON ingredients.id = cocktail_ingredients.ingredient_id
+            WHERE cocktail_id = ?1
+            "#,
+            self.id
+        )
+        .fetch_all(db)
+        .await?;
+
+        Ok(ingredients)
+    }
 }
 
 #[derive(InputObject, Debug)]
 pub struct NewCocktail {
     #[graphql(validator(min_length = 1))]
     pub name: String,
+    pub ingredients: Vec<IngredientSource>,
 }
 
 impl NewCocktail {
@@ -72,6 +98,8 @@ impl CocktailMutation {
         let db = ctx.data::<SqlitePool>()?;
         let cocktail_id = Uuid::new_v4();
 
+        let mut transaction = db.begin().await?;
+
         sqlx::query!(
             r#"
             INSERT INTO cocktails (id, name)
@@ -80,8 +108,43 @@ impl CocktailMutation {
             cocktail_id,
             new_cocktail.name
         )
-        .execute(db)
+        .execute(&mut *transaction)
         .await?;
+
+        for ingredient in &new_cocktail.ingredients {
+            let ingredient_id = match ingredient {
+                IngredientSource::Existing(id) => *id,
+                IngredientSource::New(ingredient) => {
+                    let ingredient_id = Uuid::new_v4();
+
+                    sqlx::query!(
+                        r#"
+                        INSERT INTO ingredients (id, name)
+                        VALUES (?1, ?2)
+                        "#,
+                        ingredient_id,
+                        ingredient.name,
+                    )
+                    .execute(&mut *transaction)
+                    .await?;
+
+                    ingredient_id
+                }
+            };
+
+            sqlx::query!(
+                r#"
+                INSERT INTO cocktail_ingredients (cocktail_id, ingredient_id)
+                VALUES (?1, ?2)
+                "#,
+                cocktail_id,
+                ingredient_id
+            )
+            .execute(&mut *transaction)
+            .await?;
+        }
+
+        transaction.commit().await?;
 
         tracing::info!("Created cocktail with ID: {cocktail_id}");
 
